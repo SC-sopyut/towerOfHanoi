@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tower of Hanoi — solved by Prolog</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="hanoi.css">
+</head>
+<body>
+
+<div class="scene-bg" aria-hidden="true">
+  <svg viewBox="0 0 1440 600" preserveAspectRatio="xMidYMax slice">
+    <g stroke="rgba(255,255,255,0.5)" stroke-width="3" fill="none" stroke-linecap="round">
+      <path d="M180,90 q10,-14 20,0 q10,-14 20,0" />
+      <path d="M230,110 q8,-11 16,0 q8,-11 16,0" />
+      <path d="M1180,150 q10,-14 20,0 q10,-14 20,0" />
+    </g>
+    <polygon fill="#d97fb0" points="0,320 100,260 220,300 340,240 460,290 600,230 760,300 900,250 1040,300 1180,260 1300,300 1440,270 1440,600 0,600" />
+    <polygon fill="#a85791" points="0,400 120,340 260,390 380,320 520,380 660,300 800,370 940,310 1080,380 1220,330 1360,390 1440,350 1440,600 0,600" />
+    <g fill="#5a2c5f">
+      <polygon points="1230,470 1290,470 1310,450 1210,450" />
+      <rect x="1235" y="410" width="50" height="40" />
+      <polygon points="1220,410 1300,410 1315,392 1205,392" />
+      <rect x="1245" y="365" width="30" height="30" />
+      <polygon points="1235,365 1285,365 1295,350 1225,350" />
+      <rect x="1256" y="320" width="8" height="34" />
+    </g>
+    <polygon fill="#6a3572" points="0,470 90,340 180,430 300,380 420,460 560,400 680,470 820,410 960,480 1100,420 1240,470 1360,430 1440,470 1440,600 0,600" />
+    <rect x="0" y="520" width="1440" height="80" fill="rgba(255,255,255,0.06)" />
+    <rect x="0" y="530" width="1440" height="2" fill="rgba(255,255,255,0.18)" />
+  </svg>
+</div>
+
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <h1>Tower of Hanoi</h1>
+      <p><strong>Pick a disk count</strong> and watch the recursion unfold, or try solving it yourself.</p>
+    </div>
+
+    <div class="controls-card">
+      <div class="controls-row">
+        <div class="field">
+          <label for="diskCount">Disks (1–12)</label>
+          <input type="number" id="diskCount" min="1" max="12" value="4">
+        </div>
+        <button class="solve-btn" id="solveBtn">Solve</button>
+      </div>
+      <div class="controls-hint" id="controlsHint">2³ − 1 = 7 moves for 3 disks.</div>
+    </div>
+  </header>
+
+  <div class="mode-row">
+    <div class="mode-toggle">
+      <button id="modeWatch" class="active">Watch Prolog solve</button>
+      <button id="modePlay">Play it yourself</button>
+      <button id="modeLevel">Level mode</button>
+    </div>
+    
+  </div>
+
+  <div class="layout">
+
+    <!-- Puzzle stage -->
+    <div class="panel stage-panel">
+      <div class="stage-label">
+        <h2>The pegs</h2>
+        <div class="move-readout" id="moveReadout"></div>
+        <div id="playStatus" style="display:none;"></div>
+      </div>
+
+      <!-- Level mode HUD (shown only in Level mode) -->
+      <div class="level-hud" id="levelHud" style="display:none;">
+        <div class="level-top">
+          <div class="level-badge" id="levelBadge">Level 1 / 100</div>
+          <div class="boss-tag" id="bossTag" hidden>Boss</div>
+          <div class="level-select-field">
+            <label for="levelSelect">Jump to</label>
+            <select id="levelSelect"></select>
+          </div>
+        </div>
+        <div class="hud-stats">
+          <div class="stat"><span class="stat-label">Route</span><b id="hudRoute">A → C</b></div>
+          <div class="stat"><span class="stat-label">Disks</span><b id="hudDisks">3</b></div>
+          <div class="stat"><span class="stat-label">Moves</span><b id="hudMoves">0</b></div>
+          <div class="stat"><span class="stat-label">Time</span><b id="hudTime">0:00</b></div>
+        </div>
+        <div class="time-bar"><div class="time-fill" id="timeFill"></div></div>
+        <div class="level-actions">
+          <button class="hud-btn" id="btnLevelRetry">Restart level</button>
+          <button class="hud-btn" id="btnLevelReset">Reset progress</button>
+        </div>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="platform"></div>
+        <div class="level-overlay" id="levelOverlay" hidden>
+          <div class="overlay-card" id="overlayCard">
+            <h3 id="overlayTitle"></h3>
+            <p id="overlayText"></p>
+            <div class="overlay-actions" id="overlayActions"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="playback" id="watchControls">
+        <button id="btnReset" disabled>Reset</button>
+        <button id="btnBack" disabled>◂ Step back</button>
+        <button class="primary" id="btnPlay" disabled>Play</button>
+        <button id="btnStep" disabled>Step ▸</button>
+        <button id="btnEnd" disabled>Skip to end</button>
+        <div class="speed-field">
+          <span>Fast</span>
+          <input type="range" id="speed" min="80" max="600" value="260" step="20">
+          <span>Slow</span>
+        </div>
+      </div>
+
+      <div class="play-hint" id="playHint" style="display:none;">
+        Click a peg to pick up its top disk, then click another peg to drop it there. Prolog checks every move — you can't place a larger disk on a smaller one.
+        <button id="btnPlayReset" style="margin-left:10px;">Restart</button>
+      </div>
+
+      <div class="status-line" id="statusLine"></div>
+    </div>
+
+    <!-- Prolog + ledger -->
+    <div>
+      <div class="panel code-panel">
+        <h3>The Prolog program</h3>
+        <p class="caption">This is the actual clause set solving the puzzle and validating your moves, run by a real <strong>SWI-Prolog</strong> server over HTTP.</p>
+        <pre class="code" id="codeBlock"><span class="kw">:- use_module(library(lists)).</span>
+
+hanoi(0, _, _, _, []) :- !.
+hanoi(N, From, To, Via, Moves) :-
+    N &gt; 0,
+    N1 <span class="kw">is</span> N - 1,
+    hanoi(N1, From, Via, To, Moves1),
+    hanoi(N1, Via, To, From, Moves2),
+    append(Moves1, [move(From,To)|Moves2], Moves).
+
+<span class="cm">% used to check each move you make in "Play it yourself"</span>
+legal_move(_FromSize, 0).
+legal_move(FromSize, ToSize) :- FromSize &lt; ToSize.</pre>
+        <div class="query-line" id="queryLine">?- hanoi(4, a, c, b, Moves), length(Moves, Len).</div>
+      </div>
+
+      <div class="panel ledger-panel">
+        <h3>Move ledger</h3>
+        <p class="caption">Every move Prolog returned, in order, with the disk it moves.</p>
+        <ul class="ledger-list" id="ledgerList">
+          <li class="ledger-empty">Solve the puzzle to see the moves.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <footer><h2>Jesus said in Matthew 11:28 "Come to me, all you who are weary and burdened, and I will give you rest."</h2></footer>
+</div>
+
+<script>
+(function(){
+
+  const API = 'http://localhost:8081';
+
+  // flat, saturated palette for disks — indexed by size
+  const DISK_COLORS = ['#3aa6ff','#ff5f56','#38d996','#ffb400','#b06be0','#ff8ac9','#3fd0d4','#f2f2f2','#ff8a3d','#7e57c2','#5ee6c4','#e05285'];
+  function diskColor(size){
+    return DISK_COLORS[(size - 1) % DISK_COLORS.length];
+  }
+
+  // ---------- DOM references ----------
+  const diskCountInput = document.getElementById('diskCount');
+  const solveBtn       = document.getElementById('solveBtn');
+  const controlsHint   = document.getElementById('controlsHint');
+  const stage          = document.getElementById('stage');
+  const moveReadout    = document.getElementById('moveReadout');
+  const statusLine     = document.getElementById('statusLine');
+  const queryLine      = document.getElementById('queryLine');
+  const ledgerList     = document.getElementById('ledgerList');
+  const speedInput     = document.getElementById('speed');
+  const watchControls  = document.getElementById('watchControls');
+  const playHint       = document.getElementById('playHint');
+  const playStatusEl   = document.getElementById('playStatus');
+  const modeWatchBtn   = document.getElementById('modeWatch');
+  const modePlayBtn    = document.getElementById('modePlay');
+  const btnPlayReset   = document.getElementById('btnPlayReset');
+
+  // level mode
+  const modeLevelBtn   = document.getElementById('modeLevel');
+  const levelHud       = document.getElementById('levelHud');
+  const levelBadge     = document.getElementById('levelBadge');
+  const bossTag        = document.getElementById('bossTag');
+  const levelSelect    = document.getElementById('levelSelect');
+  const hudRoute       = document.getElementById('hudRoute');
+  const hudDisks       = document.getElementById('hudDisks');
+  const hudMoves       = document.getElementById('hudMoves');
+  const hudTime        = document.getElementById('hudTime');
+  const timeFill       = document.getElementById('timeFill');
+  const btnLevelRetry  = document.getElementById('btnLevelRetry');
+  const btnLevelReset  = document.getElementById('btnLevelReset');
+  const levelOverlay   = document.getElementById('levelOverlay');
+  const overlayCard    = document.getElementById('overlayCard');
+  const overlayTitle   = document.getElementById('overlayTitle');
+  const overlayText    = document.getElementById('overlayText');
+  const overlayActions = document.getElementById('overlayActions');
+
+  const btnReset = document.getElementById('btnReset');
+  const btnBack  = document.getElementById('btnBack');
+  const btnPlay  = document.getElementById('btnPlay');
+  const btnStep  = document.getElementById('btnStep');
+  const btnEnd   = document.getElementById('btnEnd');
+
+  const PEG_NAMES = { a: 'A', b: 'B', c: 'C' };
+  const PEG_X_PCT = { a: 18, b: 50, c: 82 };
+  const STAGE_HEIGHT = 300;
+  const PLATFORM_TOP = STAGE_HEIGHT - 26 - 16;
+
+  // ---------- State ----------
+  let N = 4;
+  let moves = [];        // [{from:'a', to:'c', size:3}, ...] — the Prolog solution, watch mode
+  let index = 0;         // number of solution moves already applied (watch mode)
+  let playing = false;
+  let diskHeight = 20;
+  let stageWidth = 0;
+
+  let mode = 'watch';         // 'watch' | 'play' | 'level'
+  let selectedPeg = null;     // peg currently "holding" a picked-up disk, play mode
+  let playerMoves = 0;
+  let playerState = { a: [], b: [], c: [] };
+
+  // ---------- Disk count hint ----------
+  diskCountInput.addEventListener('input', () => {
+    let v = parseInt(diskCountInput.value || '0', 10);
+    if (isNaN(v)) return;
+    v = Math.max(1, Math.min(12, v));
+    const total = Math.pow(2, v) - 1;
+    controlsHint.textContent = `2^${v} − 1 = ${total} move${total === 1 ? '' : 's'} for ${v} disk${v===1?'':'s'}.`;
+  });
+  diskCountInput.dispatchEvent(new Event('input'));
+
+  // ---------- Backend calls ----------
+  async function runProlog(n) {
+    const res = await fetch(`${API}/solve?n=${n}`);
+    if (!res.ok) throw new Error('Server responded with ' + res.status);
+    const data = await res.json();
+    return { moves: data.moves, len: data.moves.length };
+  }
+
+  async function validateMove(fromSize, toSize) {
+    const res = await fetch(`${API}/validate?from_size=${fromSize}&to_size=${toSize}`);
+    if (!res.ok) throw new Error('Server responded with ' + res.status);
+    return res.json(); // { valid: true|false }
+  }
+
+  // Pure-JS fallback, used only if the Prolog server is unreachable for /solve.
+  function fallbackHanoi(n) {
+    const out = [];
+    function rec(k, from, to, via) {
+      if (k === 0) return;
+      rec(k - 1, from, via, to);
+      out.push({ from, to });
+      rec(k - 1, via, to, from);
+    }
+    rec(n, 'a', 'c', 'b');
+    return out;
+  }
+
+  // ---------- Simulation (watch mode: annotate + scrub) ----------
+  function annotateWithSizes(rawMoves, n) {
+    const stacks = { a: [], b: [], c: [] };
+    for (let s = n; s >= 1; s--) stacks.a.push(s);
+    return rawMoves.map(m => {
+      const size = stacks[m.from].pop();
+      stacks[m.to].push(size);
+      return { from: m.from, to: m.to, size };
+    });
+  }
+
+  function computeState(uptoIndex) {
+    const stacks = { a: [], b: [], c: [] };
+    for (let s = N; s >= 1; s--) stacks.a.push(s);
+    for (let i = 0; i < uptoIndex; i++) {
+      const m = moves[i];
+      stacks[m.from].pop();
+      stacks[m.to].push(m.size);
+    }
+    return stacks;
+  }
+
+  // ---------- Play mode state ----------
+  function resetPlayerState() {
+    playerState = { a: [], b: [], c: [] };
+    const startKey = (mode === 'level' && levelCfg) ? levelCfg.start : 'a';
+    for (let s = N; s >= 1; s--) playerState[startKey].push(s);
+    playerMoves = 0;
+    selectedPeg = null;
+  }
+
+  function renderPlayerState() {
+    Object.keys(playerState).forEach(pegKey => {
+      playerState[pegKey].forEach((size, pos) => placeDiskInstant(size, pegKey, pos));
+    });
+  }
+
+  function updatePlayStatus(message) {
+    if (mode !== 'play') return;
+    const optimal = Math.pow(2, N) - 1;
+    playStatusEl.textContent = message || `Your moves: (${playerMoves})  ·  Prolog's optimum: ${optimal}`;
+  }
+
+  function checkWin() {
+    if (playerState.c.length === N) {
+      const optimal = Math.pow(2, N) - 1;
+      updatePlayStatus(
+        playerMoves === optimal
+          ? `Solved in ${playerMoves} moves — that's Prolog's optimum!`
+          : `Solved in ${playerMoves} moves (Prolog's optimum is ${optimal}).`
+      );
+    }
+  }
+
+  // ---------- Mode switching ----------
+  function setMode(m) {
+    if (mode === 'level' && m !== 'level') leaveLevelMode();
+    mode = m;
+    modeWatchBtn.classList.toggle('active', m === 'watch');
+    modePlayBtn.classList.toggle('active', m === 'play');
+    modeLevelBtn.classList.toggle('active', m === 'level');
+    watchControls.style.display = m === 'watch' ? 'flex' : 'none';
+    playHint.style.display = m === 'play' ? 'block' : 'none';
+    playStatusEl.style.display = m === 'play' ? 'block' : 'none';
+    moveReadout.style.display = m === 'watch' ? '' : 'none';
+    levelHud.style.display = m === 'level' ? 'block' : 'none';
+    diskCountInput.disabled = (m === 'level');   // level mode picks the disk count itself
+    solveBtn.disabled = (m === 'level');
+    statusLine.textContent = '';
+
+    if (m === 'level') {
+      loadLevel(currentLevel);
+      updateButtons();
+      return;
+    }
+
+    N = parseInt(diskCountInput.value, 10) || 4;
+    buildStageDom();
+
+    if (m === 'play') {
+      resetPlayerState();
+      renderPlayerState();
+      updatePlayStatus();
+    } else {
+      moves = [];
+      index = 0;
+      renderInstant();
+    }
+    updateButtons();
+  }
+
+  modeWatchBtn.addEventListener('click', () => setMode('watch'));
+  modePlayBtn.addEventListener('click', () => setMode('play'));
+  modeLevelBtn.addEventListener('click', () => setMode('level'));
+  btnPlayReset.addEventListener('click', () => {
+    resetPlayerState();
+    renderPlayerState();
+    updatePlayStatus();
+  });
+
+  // ---------- Layout / geometry ----------
+  function layoutMetrics() {
+    stageWidth = stage.clientWidth;
+    diskHeight = Math.max(8, Math.min(20, Math.floor((PLATFORM_TOP - 30) / N)));
+  }
+
+  function diskWidth(size) {
+    const minW = 42;
+    const maxW = Math.min(150, stageWidth * 0.30);
+    if (N <= 1) return minW;
+    const step = (maxW - minW) / (N - 1);
+    return minW + (size - 1) * step;
+  }
+
+  function pegXPixels(pegKey) {
+    return (PEG_X_PCT[pegKey] / 100) * stageWidth;
+  }
+
+  // ---------- DOM construction ----------
+  function buildStageDom() {
+    stage.querySelectorAll('.disk, .peg-rod, .peg-tag, .peg-hit').forEach(el => el.remove());
+    layoutMetrics();
+    const rodHeight = PLATFORM_TOP - 10;
+
+    Object.keys(PEG_X_PCT).forEach(key => {
+      const hitArea = document.createElement('div');
+      hitArea.className = 'peg-hit';
+      hitArea.dataset.peg = key;
+      hitArea.style.left = `calc(${PEG_X_PCT[key]}% - 60px)`;
+      hitArea.style.width = '120px';
+      hitArea.addEventListener('click', () => onPegClick(key));
+      stage.appendChild(hitArea);
+    });
+
+    Object.keys(PEG_X_PCT).forEach(key => {
+      const rod = document.createElement('div');
+      rod.className = 'peg-rod';
+      rod.dataset.peg = key;
+      rod.style.left = `calc(${PEG_X_PCT[key]}% - 5px)`;
+      rod.style.height = rodHeight + 'px';
+      rod.style.bottom = '42px';
+      rod.style.pointerEvents = 'none';
+      stage.appendChild(rod);
+
+      const tag = document.createElement('div');
+      tag.className = 'peg-tag';
+      tag.style.left = PEG_X_PCT[key] + '%';
+      tag.style.pointerEvents = 'none';
+      tag.textContent = `Peg ${PEG_NAMES[key]}`;
+      if (mode === 'level' && levelCfg) {
+        if (key === levelCfg.goal) {
+          tag.textContent += ' · Goal';
+          tag.classList.add('goal');
+          rod.classList.add('goal');
+        } else if (key === levelCfg.start) {
+          tag.textContent += ' · Start';
+        }
+      }
+      stage.appendChild(tag);
+    });
+
+    for (let size = 1; size <= N; size++) {
+      const el = document.createElement('div');
+      el.className = 'disk';
+      el.id = 'disk-' + size;
+      el.style.pointerEvents = 'none';
+      el.style.width = diskWidth(size) + 'px';
+      el.style.background = diskColor(size);
+      stage.appendChild(el);
+    }
+  }
+
+  function placeDiskInstant(size, pegKey, stackPos) {
+    const el = document.getElementById('disk-' + size);
+    if (!el) return;
+    const w = diskWidth(size);
+    const x = pegXPixels(pegKey);
+    const top = PLATFORM_TOP - (stackPos + 1) * diskHeight;
+    el.style.transition = 'none';
+    el.style.left = (x - w / 2) + 'px';
+    el.style.top = top + 'px';
+    void el.offsetWidth; // force reflow so later transitions re-enable cleanly
+    el.style.transition = '';
+  }
+
+  function renderInstant() {
+    const stacks = computeState(index);
+    Object.keys(stacks).forEach(pegKey => {
+      stacks[pegKey].forEach((size, pos) => placeDiskInstant(size, pegKey, pos));
+    });
+    updateReadout();
+    updateLedgerHighlight();
+    updateButtons();
+  }
+
+  function updateReadout() {
+    moveReadout.innerHTML = `Move <b>${index}</b> of ${moves.length}`;
+  }
+
+  function updateButtons() {
+    const hasMoves = moves.length > 0 && mode === 'watch';
+    btnReset.disabled = !hasMoves || index === 0;
+    btnBack.disabled  = !hasMoves || index === 0 || playing;
+    btnStep.disabled  = !hasMoves || index >= moves.length || playing;
+    btnEnd.disabled   = !hasMoves || index >= moves.length;
+    btnPlay.disabled  = !hasMoves || index >= moves.length;
+    btnPlay.textContent = playing ? 'Pause' : 'Play';
+  }
+
+  function buildLedger() {
+    ledgerList.innerHTML = '';
+    if (moves.length === 0) {
+      ledgerList.innerHTML = '<li class="ledger-empty">Solve the puzzle to see the moves.</li>';
+      return;
+    }
+    moves.forEach((m, i) => {
+      const li = document.createElement('li');
+      li.id = 'ledger-' + i;
+      li.innerHTML = `<span class="n">${i + 1}.</span><span>Disk ${m.size}: Peg ${PEG_NAMES[m.from]} → Peg ${PEG_NAMES[m.to]}</span>`;
+      ledgerList.appendChild(li);
+    });
+  }
+
+  function updateLedgerHighlight() {
+    const items = ledgerList.querySelectorAll('li[id^="ledger-"]');
+    items.forEach((li, i) => {
+      li.classList.remove('done', 'current');
+      if (i < index - 1) li.classList.add('done');
+      else if (i === index - 1) li.classList.add('current');
+    });
+    const current = document.getElementById('ledger-' + (index - 1));
+    
+  }
+
+  // ---------- Peg selection visuals ----------
+  function highlightPeg(pegKey, on) {
+    const rod = stage.querySelector(`.peg-rod[data-peg="${pegKey}"]`);
+    if (rod) rod.classList.toggle('selected', on);
+    const disk = topDiskEl(playerState[pegKey]);
+    if (disk) disk.classList.toggle('lifted', on);
+  }
+
+  function flashInvalid(pegKey) {
+    const rod = stage.querySelector(`.peg-rod[data-peg="${pegKey}"]`);
+    if (!rod) return;
+    rod.classList.add('invalid');
+    setTimeout(() => rod.classList.remove('invalid'), 300);
+  }
+
+  function topDiskEl(stack) {
+    if (!stack || stack.length === 0) return null;
+    return document.getElementById('disk-' + stack[stack.length - 1]);
+  }
+
+  // ---------- Play mode interaction ----------
+  async function onPegClick(pegKey) {
+    if (mode !== 'play' && mode !== 'level') return;
+    if (mode === 'level' && !levelRunning) return;   // timer not started / level already over
+
+    if (selectedPeg === null) {
+      if (playerState[pegKey].length === 0) return;
+      selectedPeg = pegKey;
+      highlightPeg(pegKey, true);
+      return;
+    }
+
+    if (selectedPeg === pegKey) {
+      highlightPeg(pegKey, false);
+      selectedPeg = null;
+      return;
+    }
+
+    const fromStack = playerState[selectedPeg];
+    const fromSize = fromStack[fromStack.length - 1];
+    const toStack = playerState[pegKey];
+    const toSize = toStack.length ? toStack[toStack.length - 1] : 0;
+
+    let data;
+    try {
+      data = await validateMove(fromSize, toSize);
+    } catch (e) {
+      if (mode === 'level') {
+        // don't let a dead server freeze a timed level — check the rule locally instead
+        data = { valid: toSize === 0 || fromSize < toSize };
+        statusLine.textContent = 'Prolog server unreachable — checking moves locally.';
+      } else {
+        updatePlayStatus('Could not reach the Prolog server — is hanoi_server.pl still running on 8081?');
+        highlightPeg(selectedPeg, false);
+        selectedPeg = null;
+        return;
+      }
+    }
+
+    highlightPeg(selectedPeg, false);
+
+    // the clock may have run out while we were waiting on Prolog
+    if (mode === 'level' && !levelRunning) { selectedPeg = null; return; }
+
+    if (!data.valid) {
+      flashInvalid(pegKey);
+      selectedPeg = null;
+      return;
+    }
+
+    playerState[selectedPeg].pop();
+    playerState[pegKey].push(fromSize);
+    playerMoves++;
+    selectedPeg = null;
+    renderPlayerState();
+    if (mode === 'level') {
+      updateLevelHud();
+      checkLevelProgress();
+      return;
+    }
+    updatePlayStatus();
+    checkWin();
+  }
+
+  // ---------- Animated single move (watch mode) ----------
+  function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+  async function animateOneMove() {
+    if (index >= moves.length) return;
+    const m = moves[index];
+    const el = document.getElementById('disk-' + m.size);
+    const dur = parseInt(speedInput.value, 10);
+    const liftTop = 10;
+
+    const fromX = pegXPixels(m.from);
+    const w = diskWidth(m.size);
+
+    el.style.transition = `left ${dur}ms ease, top ${dur}ms ease`;
+
+    el.style.left = (fromX - w / 2) + 'px';
+    el.style.top = liftTop + 'px';
+    await sleep(dur);
+
+    const toX = pegXPixels(m.to);
+    el.style.left = (toX - w / 2) + 'px';
+    await sleep(dur);
+
+    index++;
+    const stacksAfter = computeState(index);
+    const toPos = stacksAfter[m.to].length - 1;
+    const landingTop = PLATFORM_TOP - (toPos + 1) * diskHeight;
+    el.style.top = landingTop + 'px';
+    await sleep(dur * 0.9);
+
+    updateReadout();
+    updateLedgerHighlight();
+    updateButtons();
+  }
+
+  async function play() {
+    playing = true;
+    updateButtons();
+    while (playing && index < moves.length) {
+      await animateOneMove();
+    }
+    playing = false;
+    updateButtons();
+  }
+
+  // ---------- Watch mode controls ----------
+  btnPlay.addEventListener('click', () => {
+    if (playing) { playing = false; updateButtons(); }
+    else { play(); }
+  });
+
+  btnStep.addEventListener('click', async () => {
+    if (playing || index >= moves.length) return;
+    await animateOneMove();
+  });
+
+  btnBack.addEventListener('click', () => {
+    if (playing || index === 0) return;
+    index--;
+    renderInstant();
+  });
+
+  btnReset.addEventListener('click', () => {
+    playing = false;
+    index = 0;
+    renderInstant();
+  });
+
+  btnEnd.addEventListener('click', () => {
+    playing = false;
+    index = moves.length;
+    renderInstant();
+  });
+
+  // ---------- Solve (watch mode) ----------
+  solveBtn.addEventListener('click', async () => {
+    if (mode !== 'watch') setMode('watch');
+
+    let n = parseInt(diskCountInput.value || '0', 10);
+    if (isNaN(n) || n < 1) n = 1;
+    if (n > 12) n = 12;
+    diskCountInput.value = n;
+    N = n;
+    playing = false;
+    statusLine.textContent = 'Consulting the Prolog program…';
+    solveBtn.disabled = true;
+
+    queryLine.textContent = `?- hanoi(${n}, a, c, b, Moves), length(Moves, Len).`;
+
+    try {
+      let result;
+      let usedFallback = false;
+      try {
+        result = await runProlog(n);
+      } catch (prologErr) {
+        usedFallback = true;
+        const fb = fallbackHanoi(n);
+        result = { moves: fb, len: fb.length };
+      }
+      moves = annotateWithSizes(result.moves, n);
+      index = 0;
+      buildStageDom();
+      buildLedger();
+      renderInstant();
+      statusLine.textContent = usedFallback
+        ? 'Prolog server unavailable — used a local fallback solver instead.'
+        : `Prolog returned ${result.len} move${result.len === 1 ? '' : 's'} (2^${n} − 1 = ${Math.pow(2,n)-1}).`;
+    } catch (e) {
+      statusLine.textContent = 'Something went wrong solving the puzzle: ' + e.message;
+    } finally {
+      solveBtn.disabled = (mode === 'level');
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    buildStageDom();
+    if (mode === 'watch') renderInstant();
+    else renderPlayerState();
+  });
+
+  // ---------- Level mode (campaign) ----------
+  // Tuning knobs — change these to make the game easier or harder.
+  const MAX_LEVEL          = 100;
+  const BOSS_EVERY         = 10;     // every 10th level is a boss stage
+  const SAVE_KEY           = 'hanoiHighestLevel';
+  const BASE_SEC_PER_MOVE  = 2.4;    // seconds allowed per optimal move on level 1
+  const SEC_PER_MOVE_DROP  = 0.12;   // allowance shrinks by this much every 10 levels
+  const MIN_SEC_PER_MOVE   = 1.2;    // ...but never below this
+  const BOSS_TIME_FACTOR   = 0.9;    // boss clock is 10% tighter
+  const TIME_BUFFER_SEC    = 5;      // flat bonus seconds on every level
+
+  let currentLevel    = 1;
+  let highestUnlocked = loadProgress();
+  let levelCfg        = null;
+  let levelRunning    = false;
+  let levelToken      = 0;           // guards against stale async results when switching levels
+  let levelTimer      = null;
+  let levelDeadline   = 0;
+  const optimalCache  = {};          // disks -> optimal move count (as reported by Prolog)
+
+  function loadProgress() {
+    try {
+      const v = parseInt(localStorage.getItem(SAVE_KEY), 10);
+      if (v >= 1 && v <= MAX_LEVEL) return v;
+    } catch (e) { /* storage unavailable */ }
+    return 1;
+  }
+  function saveProgress() {
+    try { localStorage.setItem(SAVE_KEY, String(highestUnlocked)); } catch (e) { /* ignore */ }
+  }
+
+  // Disk count: 3 disks for levels 1-20, +1 every 20 levels (7 by level 81-100).
+  // A boss stage gets one extra disk on top of that.
+  // Start peg and goal peg for a level. They differ from level to level, but are
+  // derived from the level number so Retry / Replay always gives the same layout.
+  // Level 1 stays A → C as a gentle intro.
+  function pickPegs(level) {
+    if (level === 1) return { start: 'a', goal: 'c' };
+    let t = Math.imul(level, 2654435761) >>> 0;
+    t ^= t >>> 15;
+    t = Math.imul(t, 2246822519) >>> 0;
+    t = (t ^ (t >>> 13)) >>> 0;   // keep it an unsigned int so the % below is never negative
+    const pairs = [['a','b'], ['a','c'], ['b','a'], ['b','c'], ['c','a'], ['c','b']];
+    const [start, goal] = pairs[t % pairs.length];
+    return { start, goal };
+  }
+
+  function levelBase(level) {
+    const tier = Math.floor((level - 1) / BOSS_EVERY);        // 0..9
+    const boss = level % BOSS_EVERY === 0;
+    const disks = 3 + Math.floor(tier / 2) + (boss ? 1 : 0);
+    const { start, goal } = pickPegs(level);
+    return { level, tier, boss, disks, start, goal };
+  }
+
+  function buildLevelConfig(level, optimal) {
+    const b = levelBase(level);
+    const secPerMove = Math.max(MIN_SEC_PER_MOVE, BASE_SEC_PER_MOVE - b.tier * SEC_PER_MOVE_DROP);
+    const seconds = Math.ceil(optimal * secPerMove * (b.boss ? BOSS_TIME_FACTOR : 1) + TIME_BUFFER_SEC);
+    return { ...b, optimal, maxMoves: b.boss ? optimal : null, seconds };
+  }
+
+  function formatTime(sec) {
+    const s = Math.max(0, Math.ceil(sec));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function buildLevelSelect() {
+    levelSelect.innerHTML = '';
+    for (let l = 1; l <= highestUnlocked; l++) {
+      const opt = document.createElement('option');
+      opt.value = l;
+      opt.textContent = 'Level ' + l + (l % BOSS_EVERY === 0 ? ' ★ Boss' : '');
+      levelSelect.appendChild(opt);
+    }
+    levelSelect.value = currentLevel;
+  }
+
+  function updateLevelHud(remaining) {
+    if (!levelCfg) return;
+    const c = levelCfg;
+    const rem = (remaining === undefined) ? c.seconds : remaining;
+    const pct = Math.max(0, Math.min(100, (rem / c.seconds) * 100));
+
+    levelBadge.textContent = `Level ${c.level} / ${MAX_LEVEL}`;
+    bossTag.hidden = !c.boss;
+    levelHud.classList.toggle('boss', c.boss);
+    hudRoute.textContent = `${PEG_NAMES[c.start]} → ${PEG_NAMES[c.goal]}`;
+    hudDisks.textContent = c.disks;
+    hudMoves.textContent = c.maxMoves ? `${playerMoves} / ${c.maxMoves}` : String(playerMoves);
+    hudTime.textContent = formatTime(rem);
+    hudTime.classList.toggle('warn', pct <= 25);
+    timeFill.style.width = pct + '%';
+    timeFill.classList.toggle('low', pct <= 25);
+    levelSelect.value = c.level;
+  }
+
+  function showOverlay(title, text, buttons, tone) {
+    overlayCard.className = 'overlay-card' + (tone ? ' ' + tone : '');
+    overlayTitle.textContent = title;
+    overlayText.textContent = text;
+    overlayActions.innerHTML = '';
+    (buttons || []).forEach(b => {
+      const btn = document.createElement('button');
+      btn.className = 'hud-btn' + (b.primary ? ' primary' : '');
+      btn.textContent = b.label;
+      btn.addEventListener('click', b.onClick);
+      overlayActions.appendChild(btn);
+    });
+    levelOverlay.hidden = false;
+  }
+  function hideOverlay() { levelOverlay.hidden = true; }
+
+  function stopLevelTimer() {
+    if (levelTimer !== null) clearInterval(levelTimer);
+    levelTimer = null;
+  }
+
+  function leaveLevelMode() {
+    levelToken++;
+    levelRunning = false;
+    stopLevelTimer();
+    hideOverlay();
+    diskCountInput.disabled = false;
+  }
+
+  // Prepare a level: build the board, ask Prolog for the optimal move count,
+  // then show the intro card. The clock only starts when the player presses Start.
+  async function loadLevel(level) {
+    const token = ++levelToken;
+    stopLevelTimer();
+    levelRunning = false;
+    currentLevel = level;
+
+    const base = levelBase(level);
+    N = base.disks;
+    levelCfg = buildLevelConfig(level, Math.pow(2, base.disks) - 1);   // provisional until Prolog answers
+    playerMoves = 0;
+    buildStageDom();
+    resetPlayerState();
+    renderPlayerState();
+    buildLevelSelect();
+    updateLevelHud();
+    statusLine.textContent = '';
+
+    let optimal = optimalCache[base.disks];
+    if (optimal === undefined) {
+      showOverlay(base.boss ? `Boss — Level ${level}` : `Level ${level}`,
+                  'Asking Prolog for the optimal move count…', [], base.boss ? 'boss' : '');
+      try {
+        optimal = (await runProlog(base.disks)).len;
+      } catch (e) {
+        optimal = Math.pow(2, base.disks) - 1;
+        statusLine.textContent = 'Prolog server unavailable — using 2^n − 1 for the optimum.';
+      }
+      optimalCache[base.disks] = optimal;
+      if (token !== levelToken || mode !== 'level') return;   // user moved on while we waited
+    }
+
+    levelCfg = buildLevelConfig(level, optimal);
+    updateLevelHud();
+
+    const c = levelCfg;
+    const route = `Move every disk from Peg ${PEG_NAMES[c.start]} to Peg ${PEG_NAMES[c.goal]}`;
+    const intro = c.boss
+      ? `${c.disks} disks · ${c.seconds}s on the clock\n${route}.\nBoss rule: at most ${c.maxMoves} moves — exactly the optimum. Waste a single move and the boss wins.`
+      : `${c.disks} disks · optimal is ${c.optimal} moves · ${c.seconds}s on the clock\n${route} before time runs out.`;
+    showOverlay(c.boss ? `Boss — Level ${c.level}` : `Level ${c.level}`, intro,
+                [{ label: 'Start', primary: true, onClick: startLevel }], c.boss ? 'boss' : '');
+  }
+
+  function startLevel() {
+    if (mode !== 'level' || !levelCfg) return;
+    hideOverlay();
+    resetPlayerState();
+    renderPlayerState();
+    levelRunning = true;
+    levelDeadline = performance.now() + levelCfg.seconds * 1000;
+    updateLevelHud(levelCfg.seconds);
+    levelTimer = setInterval(tickLevel, 100);
+  }
+
+  function tickLevel() {
+    const rem = (levelDeadline - performance.now()) / 1000;
+    if (rem <= 0) {
+      updateLevelHud(0);
+      failLevel(`Time’s up! The clock ran out before every disk reached Peg ${PEG_NAMES[levelCfg.goal]}.`);
+      return;
+    }
+    updateLevelHud(rem);
+  }
+
+  function checkLevelProgress() {
+    if (!levelRunning) return;
+    if (playerState[levelCfg.goal].length === N) { winLevel(); return; }
+    if (levelCfg.maxMoves !== null && playerMoves >= levelCfg.maxMoves) {
+      failLevel(`Out of moves — the boss only allows ${levelCfg.maxMoves}, and the puzzle isn’t solved.`);
+    }
+  }
+
+  function failLevel(reason) {
+    if (!levelRunning) return;
+    levelRunning = false;
+    stopLevelTimer();
+    if (selectedPeg !== null) { highlightPeg(selectedPeg, false); selectedPeg = null; }
+    const c = levelCfg;
+    showOverlay(c.boss ? 'The boss wins' : 'Level failed', reason,
+                [{ label: 'Retry', primary: true, onClick: () => loadLevel(c.level) }], 'lose');
+  }
+
+  function winLevel() {
+    levelRunning = false;
+    stopLevelTimer();
+    const c = levelCfg;
+    const left = Math.max(0, (levelDeadline - performance.now()) / 1000);
+    updateLevelHud(left);
+
+    if (c.level >= highestUnlocked && c.level < MAX_LEVEL) {
+      highestUnlocked = c.level + 1;
+      saveProgress();
+      buildLevelSelect();
+    }
+
+    const perfect = playerMoves === c.optimal ? ' That’s Prolog’s optimum!' : '';
+    const summary = `Solved in ${playerMoves} moves with ${left.toFixed(1)}s to spare.${perfect}`;
+
+    if (c.level >= MAX_LEVEL) {
+      showOverlay('Campaign complete!', summary + '\nYou beat all 100 levels.',
+                  [{ label: 'Replay level 100', onClick: () => loadLevel(c.level) },
+                   { label: 'Back to level 1', primary: true, onClick: () => loadLevel(1) }], 'win');
+      return;
+    }
+    showOverlay(c.boss ? 'Boss defeated!' : 'Level cleared!', summary,
+                [{ label: 'Replay', onClick: () => loadLevel(c.level) },
+                 { label: `Next: Level ${c.level + 1}`, primary: true, onClick: () => loadLevel(c.level + 1) }], 'win');
+  }
+
+  btnLevelRetry.addEventListener('click', () => { if (mode === 'level') loadLevel(currentLevel); });
+  btnLevelReset.addEventListener('click', () => {
+    if (mode !== 'level') return;
+    if (!confirm('Reset your campaign progress back to Level 1?')) return;
+    highestUnlocked = 1;
+    saveProgress();
+    loadLevel(1);
+  });
+  levelSelect.addEventListener('change', () => {
+    if (mode === 'level') loadLevel(parseInt(levelSelect.value, 10));
+  });
+
+  currentLevel = highestUnlocked;   // resume where the player left off
+  buildLevelSelect();
+
+  // ---------- Initial idle state ----------
+  N = parseInt(diskCountInput.value, 10) || 4;
+  buildStageDom();
+  const initialStacks = { a: [], b: [], c: [] };
+  for (let s = N; s >= 1; s--) initialStacks.a.push(s);
+  Object.keys(initialStacks).forEach(pegKey => {
+    initialStacks[pegKey].forEach((size, pos) => placeDiskInstant(size, pegKey, pos));
+  });
+  updateButtons();
+
+})();
+</script>
+
+</body>
+</html>
